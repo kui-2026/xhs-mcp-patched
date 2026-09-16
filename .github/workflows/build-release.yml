@@ -25,8 +25,11 @@ jobs:
           ref: v2.5.0
           path: upstream
 
-      - name: Apply patched search implementation
-        run: cp patched/xiaohongshu/search.go upstream/xiaohongshu/search.go
+      - name: Apply patched implementation
+        run: |
+          cp patched/xiaohongshu/search.go upstream/xiaohongshu/search.go
+          cp patched/browser_pool.go upstream/browser_pool.go
+          cp patched/service.go upstream/service.go
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -45,18 +48,18 @@ jobs:
           GOOS: windows
           GOARCH: amd64
         run: |
-          go build -trimpath -ldflags "-s -w -X main.version=v2.5.0-patched-search.1" -o ../xiaohongshu-mcp-windows-amd64-patched.exe .
+          go build -trimpath -ldflags "-s -w -X main.version=v2.5.0-patched-search.2" -o ../xiaohongshu-mcp-windows-amd64-patched.exe .
           cd ..
           sha256sum xiaohongshu-mcp-windows-amd64-patched.exe > xiaohongshu-mcp-windows-amd64-patched.exe.sha256
 
       - name: Publish fixed release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.5.0-patched-search.1
-          name: v2.5.0 patched search
+          tag_name: v2.5.0-patched-search.2
+          name: v2.5.0 patched search + browser reuse
           body: |
             Based on xpzouying/xiaohongshu-mcp v2.5.0.
-            Includes the search result hydration wait fix and bounded navigation retry.
+            Includes search hydration waiting, bounded navigation retry, and shared browser reuse.
           files: |
             xiaohongshu-mcp-windows-amd64-patched.exe
             xiaohongshu-mcp-windows-amd64-patched.exe.sha256
