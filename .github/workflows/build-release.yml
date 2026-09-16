@@ -1,0 +1,65 @@
+name: Build patched Windows release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "patched/**"
+      - ".github/workflows/build-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout patch repository
+        uses: actions/checkout@v4
+
+      - name: Checkout upstream v2.5.0
+        uses: actions/checkout@v4
+        with:
+          repository: xpzouying/xiaohongshu-mcp
+          ref: v2.5.0
+          path: upstream
+
+      - name: Apply patched search implementation
+        run: cp patched/xiaohongshu/search.go upstream/xiaohongshu/search.go
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: upstream/go.sum
+
+      - name: Test
+        working-directory: upstream
+        run: go test ./...
+
+      - name: Build Windows amd64
+        working-directory: upstream
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          go build -trimpath -ldflags "-s -w -X main.version=v2.5.0-patched-search.1" -o ../xiaohongshu-mcp-windows-amd64-patched.exe .
+          cd ..
+          sha256sum xiaohongshu-mcp-windows-amd64-patched.exe > xiaohongshu-mcp-windows-amd64-patched.exe.sha256
+
+      - name: Publish fixed release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.5.0-patched-search.1
+          name: v2.5.0 patched search
+          body: |
+            Based on xpzouying/xiaohongshu-mcp v2.5.0.
+            Includes the search result hydration wait fix and bounded navigation retry.
+          files: |
+            xiaohongshu-mcp-windows-amd64-patched.exe
+            xiaohongshu-mcp-windows-amd64-patched.exe.sha256
+          make_latest: true
+          fail_on_unmatched_files: true
+          overwrite_files: true
