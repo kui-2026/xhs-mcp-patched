@@ -81,6 +81,28 @@ func (c CommentLoadConfig) normalize() CommentLoadConfig {
 	return c
 }
 
+const (
+	defaultCommentLoadTimeout = 40 * time.Second
+	commentTimeoutPerBatch    = 12 * time.Second
+	maxCommentLoadTimeout     = 75 * time.Second
+)
+
+// commentLoadTimeout gives the stable 20-comment path enough room while
+// extending the budget in 10-comment steps for larger requests. The cap keeps
+// one slow browser target from occupying the MCP connection indefinitely.
+func commentLoadTimeout(maxCommentItems int) time.Duration {
+	if maxCommentItems <= defaultMaxCommentItems {
+		return defaultCommentLoadTimeout
+	}
+
+	extraBatches := (maxCommentItems - defaultMaxCommentItems + 9) / 10
+	budget := defaultCommentLoadTimeout + time.Duration(extraBatches)*commentTimeoutPerBatch
+	if budget > maxCommentLoadTimeout {
+		return maxCommentLoadTimeout
+	}
+	return budget
+}
+
 type FeedDetailAction struct {
 	page *rod.Page
 }
@@ -98,7 +120,14 @@ func (f *FeedDetailAction) GetFeedDetail(ctx context.Context, feedID, xsecToken 
 func (f *FeedDetailAction) GetFeedDetailWithConfig(ctx context.Context, feedID, xsecToken string, loadAllComments bool, config CommentLoadConfig) (*FeedDetailResponse, error) {
 	config = config.normalize()
 
-	requestCtx, cancel := context.WithTimeout(ctx, 50*time.Second)
+	requestBudget := 50 * time.Second
+	commentBudget := commentLoadTimeout(config.MaxCommentItems)
+	if loadAllComments {
+		// Leave room for navigation, the initial snapshot, and the final
+		// bounded snapshot after comment loading finishes.
+		requestBudget = commentBudget + 20*time.Second
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, requestBudget)
 	defer cancel()
 	// Keep a page rooted in the caller context so a comment timeout cannot make
 	// the final note snapshot impossible to read.
@@ -108,6 +137,9 @@ func (f *FeedDetailAction) GetFeedDetailWithConfig(ctx context.Context, feedID, 
 	logrus.Infof("打开 feed 详情页: %s", url)
 	logrus.Infof("配置: 点击更多=%v, 回复阈值=%d, 最大评论数=%d, 滚动速度=%s",
 		config.ClickMoreReplies, config.MaxRepliesThreshold, config.MaxCommentItems, config.ScrollSpeed)
+	if loadAllComments {
+		logrus.Infof("超时预算: 评论=%s, 整体=%s", commentBudget, requestBudget)
+	}
 
 	// Bound navigation independently; data readiness is checked by extraction,
 	// not by waiting for the entire dynamic DOM to stop changing.
@@ -142,7 +174,7 @@ func (f *FeedDetailAction) GetFeedDetailWithConfig(ctx context.Context, feedID, 
 	if err != nil || !loadAllComments {
 		return result, err
 	}
-	commentCtx, stopComments := context.WithTimeout(requestCtx, 30*time.Second)
+	commentCtx, stopComments := context.WithTimeout(requestCtx, commentBudget)
 	defer stopComments()
 	loader := &commentLoader{
 		page: page.Context(commentCtx), config: config,
