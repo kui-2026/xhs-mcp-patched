@@ -111,8 +111,9 @@ func (s *SearchAction) Search(ctx context.Context, keyword string, filters ...Fi
 	if err := navigateWithRetry(page, searchURL, 12*time.Second); err != nil {
 		return nil, fmt.Errorf("打开搜索页失败: %w", err)
 	}
-	page.MustWaitLoad()
-	waitFeedsLoaded(page, 20*time.Second)
+	// 搜索页是 SPA，导航后可能再次切换 target。MustWaitLoad 在这类切换中会
+	// panic: "Inspected target navigated or closed"，因此直接等待实际需要的 feeds 数据。
+	waitFeedsLoaded(page, 30*time.Second)
 	humanize.Delay(ctx, humanize.AfterNavigate)
 
 	if len(pending) > 0 {
@@ -145,7 +146,7 @@ func (s *SearchAction) Search(ctx context.Context, keyword string, filters ...Fi
 		waitFeedsChanged(page, before, 15*time.Second)
 	}
 
-	result := page.MustEval(`() => {
+	evalResult, err := page.Eval(`() => {
 		if (window.__INITIAL_STATE__ &&
 		    window.__INITIAL_STATE__.search &&
 		    window.__INITIAL_STATE__.search.feeds) {
@@ -156,7 +157,11 @@ func (s *SearchAction) Search(ctx context.Context, keyword string, filters ...Fi
 			}
 		}
 		return "";
-	}`).String()
+	}`)
+	if err != nil {
+		return nil, fmt.Errorf("读取搜索结果失败: %w", err)
+	}
+	result := evalResult.Value.Str()
 
 	if result == "" {
 		return nil, errors.ErrNoFeeds
