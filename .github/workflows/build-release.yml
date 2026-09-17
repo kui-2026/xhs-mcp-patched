@@ -1,6 +1,7 @@
 name: Build patched Windows release
 
 on:
+  pull_request:
   push:
     branches: [main]
     paths:
@@ -22,14 +23,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: xpzouying/xiaohongshu-mcp
-          ref: v2.5.0
+          ref: 6583124dfda92312b6bc19a042a6acfae63fe498
           path: upstream
 
       - name: Apply patched implementation
         run: |
-          cp patched/xiaohongshu/search.go upstream/xiaohongshu/search.go
-          cp patched/browser_pool.go upstream/browser_pool.go
-          cp patched/service.go upstream/service.go
+          cp -r patched/. upstream/
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -48,18 +47,28 @@ jobs:
           GOOS: windows
           GOARCH: amd64
         run: |
-          go build -trimpath -ldflags "-s -w -X main.version=v2.5.0-patched-search.2" -o ../xiaohongshu-mcp-windows-amd64-patched.exe .
+          go build -trimpath -ldflags "-s -w -X main.version=v2.5.0-patched-detail.1" -o ../xiaohongshu-mcp-windows-amd64-patched.exe .
           cd ..
           sha256sum xiaohongshu-mcp-windows-amd64-patched.exe > xiaohongshu-mcp-windows-amd64-patched.exe.sha256
 
+      - name: Upload test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: xhs-windows-${{ github.sha }}
+          path: |
+            xiaohongshu-mcp-windows-amd64-patched.exe
+            xiaohongshu-mcp-windows-amd64-patched.exe.sha256
+
       - name: Publish fixed release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.5.0-patched-search.2
-          name: v2.5.0 patched search + browser reuse
+          tag_name: v2.5.0-patched-detail.1
+          name: v2.5.0 bounded detail and partial comments
           body: |
             Based on xpzouying/xiaohongshu-mcp v2.5.0.
             Includes search hydration waiting, bounded navigation retry, and shared browser reuse.
+            Bounds detail comment loading and returns saved snapshots with an explicit warning on interruption.
           files: |
             xiaohongshu-mcp-windows-amd64-patched.exe
             xiaohongshu-mcp-windows-amd64-patched.exe.sha256
