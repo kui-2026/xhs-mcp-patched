@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestCommentTimeoutPreservesLastCheckpoint(t *testing.T) {
@@ -47,5 +48,26 @@ func TestSuccessfulCommentLoadHasNoWarning(t *testing.T) {
 		})
 	if err != nil || got.Note.NoteID != "complete" || got.CommentLoadWarning != "" {
 		t.Fatalf("got=%+v err=%v", got, err)
+	}
+}
+
+func TestCommentLoadTimeoutScalesAndCaps(t *testing.T) {
+	tests := []struct {
+		items int
+		want  time.Duration
+	}{
+		{items: 0, want: 40 * time.Second},
+		{items: 20, want: 40 * time.Second},
+		{items: 21, want: 52 * time.Second},
+		{items: 30, want: 52 * time.Second},
+		{items: 31, want: 64 * time.Second},
+		{items: 50, want: 75 * time.Second},
+		{items: 100, want: 75 * time.Second},
+	}
+
+	for _, tt := range tests {
+		if got := commentLoadTimeout(tt.items); got != tt.want {
+			t.Errorf("commentLoadTimeout(%d) = %s, want %s", tt.items, got, tt.want)
+		}
 	}
 }
