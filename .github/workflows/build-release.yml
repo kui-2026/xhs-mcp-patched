@@ -3,7 +3,7 @@ name: Build patched Windows release
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, fix/detail-timeout-partial-comments]
     paths:
       - "patched/**"
       - ".github/workflows/build-release.yml"
