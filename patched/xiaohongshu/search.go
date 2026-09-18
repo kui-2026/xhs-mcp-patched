@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/sirupsen/logrus"
-	"github.com/xpzouying/xiaohongshu-mcp/errors"
 	"github.com/xpzouying/xiaohongshu-mcp/humanize"
 )
 
@@ -164,7 +163,11 @@ func (s *SearchAction) Search(ctx context.Context, keyword string, filters ...Fi
 	result := evalResult.Value.Str()
 
 	if result == "" {
-		return nil, errors.ErrNoFeeds
+		if feeds, domErr := readFeedsFromDOM(page); domErr == nil && len(feeds) > 0 {
+			logrus.Warnf("搜索状态数据缺失，已从页面链接恢复 %d 条笔记", len(feeds))
+			return feeds, nil
+		}
+		return nil, diagnoseFeedPage(page, "搜索")
 	}
 
 	var feeds []Feed
