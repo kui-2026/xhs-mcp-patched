@@ -1,0 +1,26 @@
+diff --git a/xiaohongshu/search.go b/xiaohongshu/search.go
+index 2a0fd3b..f0f7a11 100644
+--- a/xiaohongshu/search.go
++++ b/xiaohongshu/search.go
+@@ -175,7 +175,20 @@ func (s *SearchAction) Search(ctx context.Context, keyword string, filters ...Fi
+ 		return nil, fmt.Errorf("failed to unmarshal feeds: %w", err)
+ 	}
+ 
+-	return onlyNotes(feeds), nil
++	feeds = onlyNotes(feeds)
++	if len(feeds) > 0 {
++		return feeds, nil
++	}
++
++	// [] is not a useful success for a broadly matching keyword. Small red
++	// book may leave an empty reactive container behind when the page is still
++	// hydrating, has shown a risk page, or its state layout changed. Give DOM
++	// extraction one last chance and otherwise return the diagnostic evidence.
++	if domFeeds, domErr := readFeedsFromDOM(page); domErr == nil && len(domFeeds) > 0 {
++		logrus.Warnf("搜索状态返回空数组，已从页面链接恢复 %d 条笔记", len(domFeeds))
++		return domFeeds, nil
++	}
++	return nil, diagnoseFeedPage(page, "搜索")
+ }
+ 
+ // feedIDsJS 读当前结果集的 id 列表，用来判断数据有没有换一批。
