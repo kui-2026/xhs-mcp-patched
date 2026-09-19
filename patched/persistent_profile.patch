@@ -9,6 +9,7 @@ index 613855a..06e029f 100644
 +		browser.WithUserDataDir(os.Getenv("XHS_USER_DATA_DIR")),
  	)
  }
+ 
 diff --git a/xiaohongshu/feed_fallback.go b/xiaohongshu/feed_fallback.go
 index c5d4295..84732a2 100644
 --- a/xiaohongshu/feed_fallback.go
@@ -28,11 +29,13 @@ index c5d4295..84732a2 100644
 -		return "RISK_CONTROL"
  	case strings.Contains(text, "暂无内容") || strings.Contains(text, "没有找到") || strings.Contains(text, "无结果"):
  		return "EMPTY_RESULT"
+ 	default:
+ 
 diff --git a/xiaohongshu/feed_fallback_test.go b/xiaohongshu/feed_fallback_test.go
-index de7a516..452906f 100644
+index de7a516..ebd5781 100644
 --- a/xiaohongshu/feed_fallback_test.go
 +++ b/xiaohongshu/feed_fallback_test.go
-@@ -3,13 +3,20 @@ package xiaohongshu
+@@ -3,15 +3,22 @@ package xiaohongshu
  import "testing"
  
  func TestClassifyFeedPage(t *testing.T) {
