@@ -30,6 +30,7 @@ jobs:
         run: |
           cp -r patched/. upstream/
           git apply --directory=upstream --whitespace=nowarn patched/persistent_profile.patch
+          git apply --directory=upstream --whitespace=nowarn patched/search_empty_diagnosis.patch
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -48,7 +49,7 @@ jobs:
           GOOS: windows
           GOARCH: amd64
         run: |
-          go build -trimpath -ldflags "-s -w -X main.version=v2.5.0-patched-stability.2" -o ../xiaohongshu-mcp-windows-amd64-patched.exe .
+          go build -trimpath -ldflags "-s -w -X main.version=v2.5.0-patched-stability.3" -o ../xiaohongshu-mcp-windows-amd64-patched.exe .
           cd ..
           sha256sum xiaohongshu-mcp-windows-amd64-patched.exe > xiaohongshu-mcp-windows-amd64-patched.exe.sha256
 
